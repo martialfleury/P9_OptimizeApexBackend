@@ -1,12 +1,21 @@
 trigger UpdateAccountCA on Order (after update) {
-	
-    set<Id> setAccountIds = new set<Id>();
-    
-    for(integer i=0; i< trigger.new.size(); i++){
-        Order newOrder= trigger.new[i];
-       
-        Account acc = [SELECT Id, Chiffre_d_affaire__c FROM Account WHERE Id =:newOrder.AccountId ];
-        acc.Chiffre_d_affaire__c = acc.Chiffre_d_affaire__c + newOrder.TotalAmount;
-        update acc;
+
+     // récupération de la liste des comptes pour les commandes actives
+  set<Id> accountIds = new set<Id>();
+  for(Order order : trigger.new){
+    if(order.Status == 'Activated'){
+      accountIds.add(order.AccountId);
     }
+  }
+  // mise à jour du CA
+  if(accountIds.size() > 0){
+    // List<Account> accountsWithOrders = [SELECT Id, Chiffre_d_affaire__c, (SELECT TotalAmount FROM Orders WHERE Status='Activated')
+    List<Account> accountsWithOrders = [SELECT Id, (SELECT TotalAmount FROM Orders WHERE Status='Activated')
+                                          FROM Account
+                                          WHERE Id IN :accountIds
+                                        ];
+    AccountService.calculateCA(accountsWithOrders);
+  }
+
+
 }
